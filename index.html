@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>家計4象限 × ライフプラン表</title>
-<meta name="description" content="支出を「毎月／不定期」×「固定／変動」の4象限に分けて入力し、相続や教育費、年金の目減り、暴落のタイミングまで織り込んで100歳までの資産推移を計算するライフプランツール。入力内容はブラウザ内にのみ保存されます。">
+<meta name="description" content="支出を「毎月／不定期」×「固定／変動」の4象限に分けて入力し、積立期間・定率取り崩し・年金の目減り・暴落のタイミングまで織り込んで100歳までの資産推移を計算するライフプランツール。">
 <meta name="theme-color" content="#F2F4F3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#101614" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -189,7 +189,7 @@
 
   <section class="card">
     <h2>3. 前提条件</h2>
-    <p class="note">生活費は上の4象限の合計が自動で入ります。<strong>完済がある住宅ローンは4象限ではなく下のローン欄に入れてください</strong>（4象限に入れると100歳まで払い続ける計算になります）。賃貸で家賃がずっと続く場合は、逆に4象限へ入れてローン欄を0にします。資産は<strong>現預金・国債・株式など</strong>の3つに分けて持ちます。現預金が足りなくなったときは、まず国債から、それでも足りなければ株式から取り崩します。現預金の上限を超えた分は株式に回ります。</p>
+    <p class="note">生活費は上の4象限の合計が自動で入ります。<strong>完済がある住宅ローンは4象限ではなく下のローン欄に入れてください</strong>（4象限に入れると100歳まで払い続ける計算になります）。賃貸で家賃がずっと続く場合は、逆に4象限へ入れてローン欄を0にします。資産は<strong>現預金・国債・株式など</strong>の3つに分けて持ちます。現預金が足りなくなったときは、まず国債から、それでも足りなければ株式から取り崩します。投資に回るのは<strong>積立の欄で指定した額だけ</strong>で、余ったお金は現預金として貯まっていきます。相続などでまとまった現金が入ったときに自動で運用へ移したい場合は、「上限を超えた現預金を自動で株式へ回す」にチェックを入れてください。</p>
     <p class="note" style="margin:-8px 0 14px">年金は<strong>ねんきん定期便などの額面</strong>で入れてください。手取り率で税・社会保険料を差し引きます（目安88%）。改定率は物価上昇率と別に設定します。日本の年金はマクロ経済スライドにより<strong>物価上昇より低く抑えられる</strong>設計なので、物価2%なら改定1%程度が妥当な想定です。</p>
     <div class="grid2">
       <div class="f"><label>開始年（西暦）</label><input type="number" id="p_year"></div>
@@ -206,15 +206,34 @@
       <div class="f"><label>現在の現預金（万円）</label><input type="number" id="p_asset" step="100"></div>
       <div class="f"><label>現在の投資資産・株式など（万円）</label><input type="number" id="p_invest" step="100"></div>
       <div class="f"><label>積立投資 月額・株式など（円）</label><input type="number" id="p_tsumitate" step="10000"></div>
+      <div class="f"><label>株式の積立 開始年齢</label><input type="number" id="p_dcaStart"></div>
+      <div class="f"><label>株式の積立 終了年齢</label><input type="number" id="p_dcaEnd"></div>
       <div class="f"><label>株式などの想定利回り（％）</label><input type="number" id="p_ret_rate" step="0.5"></div>
       <div class="f"><label>現在の国債（万円）</label><input type="number" id="p_bond" step="100"></div>
       <div class="f"><label>国債の積立 月額（円）</label><input type="number" id="p_bondtsu" step="10000"></div>
+      <div class="f"><label>国債の積立 開始年齢</label><input type="number" id="p_bondStart"></div>
+      <div class="f"><label>国債の積立 終了年齢</label><input type="number" id="p_bondEnd"></div>
       <div class="f"><label>国債の利回り（％）</label><input type="number" id="p_bondrate" step="0.1"></div>
       <div class="f"><label>現預金として置いておく上限（万円）</label><input type="number" id="p_cashcap" step="100"></div>
+      <div class="f" style="justify-content:flex-end">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2);cursor:pointer;font-weight:400">
+          <input type="checkbox" id="p_sweepOn" style="width:auto;margin:0">
+          上限を超えた現預金を自動で株式へ回す
+        </label>
+      </div>
       <div class="f"><label>物価上昇率（％）</label><input type="number" id="p_infl" step="0.5"></div>
       <div class="f"><label>住宅ローン 月額（円）</label><input type="number" id="p_loan" step="10000"></div>
       <div class="f"><label>ローン完済年齢</label><input type="number" id="p_loan_end"></div>
       <div class="f"><label>退職後の生活費（現在の何％）</label><input type="number" id="p_ret_cost" step="5"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:16px;font-size:13.5px;color:var(--ink2);cursor:pointer">
+      <input type="checkbox" id="p_swrOn" style="width:auto;margin:0">
+      定率で取り崩す（4%ルールなど）
+    </label>
+    <p class="note" style="margin:6px 0 10px">オフのときは<strong>足りない分だけ</strong>取り崩します（国債→株式の順）。オンにすると、指定年齢から<strong>毎年きまった割合</strong>を運用資産から現金に移します。生活費が余った年もその分は現金に積み上がり、投資へは戻しません。</p>
+    <div class="grid2">
+      <div class="f"><label>定率取り崩し 開始年齢</label><input type="number" id="p_swrStart"></div>
+      <div class="f"><label>取り崩す割合（％／年）</label><input type="number" id="p_swrRate" step="0.5"></div>
     </div>
   </section>
 
@@ -350,6 +369,8 @@ function defaults(){return{
   p:{year:2026,age:50,sage:50,ret:65,sret:65,sev:1000,pstart:65,pen:200,spen:90,
      asset:400,invest:300,tsumitate:30000,cashCap:400,rate:4,
      bond:0,bondTsu:0,bondRate:0.6,kidRate:4,kidBal:0,
+     dcaStart:50,dcaEnd:65,bondStart:50,bondEnd:65,sweepOn:false,
+     swrOn:false,swrStart:65,swrRate:4,
      penNet:90,penRise:1,
      infl:2,loan:95000,loanEnd:70,retCost:85},
   events:[
@@ -390,6 +411,14 @@ function load(){
       if(typeof r.p.penNet!=="number")r.p.penNet=88;
       if(typeof r.p.penRise!=="number")r.p.penRise=1;
       if(typeof r.shockDrop!=="number")r.shockDrop=30;
+      if(typeof r.p.dcaStart!=="number")r.p.dcaStart=r.p.age||50;
+      if(typeof r.p.dcaEnd!=="number")r.p.dcaEnd=r.p.ret||65;
+      if(typeof r.p.bondStart!=="number")r.p.bondStart=r.p.age||50;
+      if(typeof r.p.bondEnd!=="number")r.p.bondEnd=r.p.ret||65;
+      if(typeof r.p.swrOn!=="boolean")r.p.swrOn=false;
+      if(typeof r.p.swrStart!=="number")r.p.swrStart=r.p.ret||65;
+      if(typeof r.p.swrRate!=="number")r.p.swrRate=4;
+      if(typeof r.p.sweepOn!=="boolean")r.p.sweepOn=false;
       return r;
     }}catch(e){}
   return defaults();
@@ -559,13 +588,25 @@ function calc(monthlyCut,shock){
     cash+=net;
     // 就労中は積立額を現預金から投資へ振り替える（現預金がある範囲で）
     var tsu=0;
-    if(working){
-      tsu=Math.min((p.tsumitate||0)*12,Math.max(0,cash));cash-=tsu;inv+=tsu;
+    if(age>=(p.dcaStart||0)&&age<(p.dcaEnd||0)){
+      var st=Math.min((p.tsumitate||0)*12,Math.max(0,cash));cash-=st;inv+=st;tsu+=st;
+    }
+    if(age>=(p.bondStart||0)&&age<(p.bondEnd||0)){
       var bt=Math.min((p.bondTsu||0)*12,Math.max(0,cash));cash-=bt;bond+=bt;tsu+=bt;
     }
-    // 生活防衛資金の上限を超えた現預金は投資へ回す（相続などの臨時収入もここで運用に乗る）
+    // 定率取り崩し：運用資産から毎年きまった割合を現金へ移す（株式と国債から按分）
+    var swr=0, swrOn=(p.swrOn===true&&age>=(p.swrStart||999));
+    if(swrOn){
+      var pool=Math.max(0,inv)+Math.max(0,bond);
+      swr=pool*((p.swrRate||0)/100);
+      if(swr>0&&pool>0){
+        var fi=Math.max(0,inv)/pool;
+        inv-=swr*fi; bond-=swr*(1-fi); cash+=swr;
+      }
+    }
+    // 上限を超えた現預金の自動振替（任意。定率取り崩し中は戻さない）
     var cap=(p.cashCap||0)*10000;
-    if(cash>cap){var sweep=cash-cap;cash=cap;inv+=sweep;tsu+=sweep;}
+    if(p.sweepOn===true&&!swrOn&&cash>cap){var sweep=cash-cap;cash=cap;inv+=sweep;tsu+=sweep;}
     var yearRate=rate;
     if(shock&&age===shock.at)yearRate=-(shock.drop||0)/100;
     inv=inv*(1+yearRate);
@@ -579,7 +620,7 @@ function calc(monthlyCut,shock){
     }
     var asset=cash+inv+bond;
     rows.push({year:year,age:age,sage:sage,inc:inc,exp:exp,net:net,asset:asset,
-      cash:cash,inv:inv,bond:bond,living:living,loan:loan,gift:giftSum,
+      cash:cash,inv:inv,bond:bond,living:living,loan:loan,gift:giftSum,swr:swr,
       evt:evtSum,evtNames:evtNames,evtStart:evtStart,
       inh:inhSum,inhNames:inhNames,inhStart:inhStart,real:asset/f,tsu:tsu});
   }
@@ -881,7 +922,7 @@ function renderChart(rows){
 function renderTable(rows){
   var t=document.getElementById("tbl");
   var peak=Math.max.apply(null,rows.map(function(r){return Math.max(0,r.asset);}))||1;
-  var h='<thead><tr><th>西暦</th><th>年齢</th><th>収入</th><th>うち相続</th><th>生活費</th><th>ローン</th><th>イベント</th><th>贈与</th><th>支出計</th><th>収支</th><th>現預金</th><th>国債</th><th>株式など</th><th>資産合計</th><th>実質</th></tr></thead><tbody>';
+  var h='<thead><tr><th>西暦</th><th>年齢</th><th>収入</th><th>うち相続</th><th>生活費</th><th>ローン</th><th>イベント</th><th>贈与</th><th>支出計</th><th>収支</th><th>定率取崩</th><th>現預金</th><th>国債</th><th>株式など</th><th>資産合計</th><th>実質</th></tr></thead><tbody>';
   rows.forEach(function(r){
     h+='<tr'+((r.evtNames.length||r.inhNames.length)?' class="evt"':'')+'>'+
       '<td>'+r.year+(r.evtStart?'<span style="font-size:10.5px;color:var(--q3)"> ●</span>':'')+
@@ -895,6 +936,7 @@ function renderTable(rows){
       '<td>'+(r.gift?man(r.gift/10000):'—')+'</td>'+
       '<td>'+man(r.exp/10000)+'</td>'+
       '<td class="'+(r.net>=0?'pos':'neg')+'">'+(r.net>=0?'+':'')+man(r.net/10000)+'</td>'+
+      '<td style="color:var(--accent)">'+(r.swr?man(r.swr/10000):'—')+'</td>'+
       '<td style="color:var(--mute)">'+man(r.cash/10000)+'</td>'+
       '<td style="color:var(--mute)">'+man(r.bond/10000)+'</td>'+
       '<td style="color:var(--mute)">'+man(r.inv/10000)+'</td>'+
@@ -934,6 +976,8 @@ var MAP={p_year:"year",p_age:"age",p_sage:"sage",p_ret:"ret",p_sret:"sret",p_sev
   p_tsumitate:"tsumitate",p_cashcap:"cashCap",p_ret_rate:"rate",
   p_bond:"bond",p_bondtsu:"bondTsu",p_bondrate:"bondRate",
   p_kidrate:"kidRate",p_kidbal:"kidBal",p_penNet:"penNet",p_penRise:"penRise",
+  p_dcaStart:"dcaStart",p_dcaEnd:"dcaEnd",p_bondStart:"bondStart",p_bondEnd:"bondEnd",
+  p_swrStart:"swrStart",p_swrRate:"swrRate",
   p_infl:"infl",p_loan:"loan",
   p_loan_end:"loanEnd",p_ret_cost:"retCost"};
 function bind(){
@@ -953,6 +997,10 @@ function bind(){
     document.getElementById("shockDropV").textContent=S.shockDrop;
     renderShock();persist();
   };
+  var sw=document.getElementById("p_swrOn");sw.checked=!!S.p.swrOn;
+  sw.onchange=function(){S.p.swrOn=sw.checked;touch(true);};
+  var sp=document.getElementById("p_sweepOn");sp.checked=!!S.p.sweepOn;
+  sp.onchange=function(){S.p.sweepOn=sp.checked;touch(true);};
   var ni=document.getElementById("noInh");ni.checked=!!S.noInh;
   ni.onchange=function(){S.noInh=ni.checked;touch(true);};
 }
@@ -1012,11 +1060,11 @@ document.getElementById("imp").onchange=function(ev){
   fr.readAsText(f);};
 document.getElementById("csv").onclick=function(){
   var rows=calc(0);
-  var out="西暦,本人年齢,配偶者年齢,収入,うち相続,生活費,ローン,イベント,贈与,支出計,収支,現預金,国債,株式など,資産合計,実質\n";
+  var out="西暦,本人年齢,配偶者年齢,収入,うち相続,生活費,ローン,イベント,贈与,支出計,収支,定率取崩,現預金,国債,株式など,資産合計,実質\n";
   rows.forEach(function(r){
     out+=[r.year,r.age,r.sage,Math.round(r.inc/10000),Math.round(r.inh/10000),Math.round(r.living/10000),
       Math.round(r.loan/10000),Math.round(r.evt/10000),Math.round(r.gift/10000),Math.round(r.exp/10000),
-      Math.round(r.net/10000),Math.round(r.cash/10000),Math.round(r.bond/10000),
+      Math.round(r.net/10000),Math.round(r.swr/10000),Math.round(r.cash/10000),Math.round(r.bond/10000),
       Math.round(r.inv/10000),Math.round(r.asset/10000),Math.round(r.real/10000)].join(",")+"\n";
   });
   var blob=new Blob(["﻿"+out],{type:"text/csv"});
