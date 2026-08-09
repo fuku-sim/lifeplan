@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>家計4象限 × ライフプラン表</title>
-<meta name="description" content="支出を「毎月／不定期」×「固定／変動」の4象限に分けて入力し、積立期間・定率取り崩し・年金の目減り・暴落のタイミングまで織り込んで100歳までの資産推移を計算するライフプランツール。">
+<meta name="description" content="支出を「毎月／不定期」×「固定／変動」の4象限に分けて入力し、積立期間・国債の購入・定率取り崩し・年金の目減り・暴落のタイミングまで織り込んで100歳までの資産推移を計算するライフプランツール。">
 <meta name="theme-color" content="#F2F4F3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#101614" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -210,9 +210,6 @@
       <div class="f"><label>株式の積立 終了年齢</label><input type="number" id="p_dcaEnd"></div>
       <div class="f"><label>株式などの想定利回り（％）</label><input type="number" id="p_ret_rate" step="0.5"></div>
       <div class="f"><label>現在の国債（万円）</label><input type="number" id="p_bond" step="100"></div>
-      <div class="f"><label>国債の積立 月額（円）</label><input type="number" id="p_bondtsu" step="10000"></div>
-      <div class="f"><label>国債の積立 開始年齢</label><input type="number" id="p_bondStart"></div>
-      <div class="f"><label>国債の積立 終了年齢</label><input type="number" id="p_bondEnd"></div>
       <div class="f"><label>国債の利回り（％）</label><input type="number" id="p_bondrate" step="0.1"></div>
       <div class="f"><label>現預金として置いておく上限（万円）</label><input type="number" id="p_cashcap" step="100"></div>
       <div class="f" style="justify-content:flex-end">
@@ -226,7 +223,15 @@
       <div class="f"><label>ローン完済年齢</label><input type="number" id="p_loan_end"></div>
       <div class="f"><label>退職後の生活費（現在の何％）</label><input type="number" id="p_ret_cost" step="5"></div>
     </div>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:16px;font-size:13.5px;color:var(--ink2);cursor:pointer">
+    <h2 style="margin-top:26px">国債の購入</h2>
+    <p class="note">個人向け国債は1万円単位でいつでも買えますが、実際には<strong>まとまった額を一度に</strong>買うのが一般的です。退職時に守りの資金として移す場合は、開始年と終了年を同じにして金額を入れてください。何年かに分けて買うなら終了年を先に設定します（その場合の金額は1年あたり）。現預金から国債へ移す扱いで、<strong>手元の現預金の範囲内</strong>で実行されます。</p>
+    <div class="evtrow" style="font-size:11px;color:var(--mute);font-weight:600">
+      <span>開始年</span><span>終了年</span><span>内容</span><span>金額（万円/年）</span><span></span>
+    </div>
+    <div id="bondbuys"></div>
+    <button class="add" id="addBond">＋ 国債の購入を追加</button>
+
+    <label style="display:flex;align-items:center;gap:8px;margin-top:22px;font-size:13.5px;color:var(--ink2);cursor:pointer">
       <input type="checkbox" id="p_swrOn" style="width:auto;margin:0">
       定率で取り崩す（4%ルールなど）
     </label>
@@ -368,8 +373,8 @@ function defaults(){return{
   ],
   p:{year:2026,age:50,sage:50,ret:65,sret:65,sev:1000,pstart:65,pen:200,spen:90,
      asset:400,invest:300,tsumitate:30000,cashCap:400,rate:4,
-     bond:0,bondTsu:0,bondRate:0.6,kidRate:4,kidBal:0,
-     dcaStart:50,dcaEnd:65,bondStart:50,bondEnd:65,sweepOn:false,
+     bond:0,bondRate:0.6,kidRate:4,kidBal:0,
+     dcaStart:50,dcaEnd:65,sweepOn:false,
      swrOn:false,swrStart:65,swrRate:4,
      penNet:90,penRise:1,
      infl:2,loan:95000,loanEnd:70,retCost:85},
@@ -386,6 +391,9 @@ function defaults(){return{
   kids:[
     {y:2026,y2:2035,n:"子ども1人目",a:30}
   ],
+  bondBuys:[
+    {y:2041,y2:2041,n:"退職時に守りの資金へ",a:300}
+  ],
   noInh:false,
   cut:0,
   shockDrop:30
@@ -398,13 +406,21 @@ function load(){
       if(!r.inherit)r.inherit=[];
       if(typeof r.noInh!=="boolean")r.noInh=false;
       if(!r.kids)r.kids=[];
-      [r.events,r.inherit,r.kids].forEach(function(arr){
+      if(!r.bondBuys){
+        r.bondBuys=[];
+        // 旧「国債の積立 月額」を購入リストへ移行
+        if(r.p&&r.p.bondTsu>0){
+          r.bondBuys.push({y:(r.p.year||2026)+Math.max(0,(r.p.bondStart||0)-(r.p.age||0)),
+                           y2:(r.p.year||2026)+Math.max(0,(r.p.bondEnd||0)-(r.p.age||0))-1,
+                           n:"国債の積立（旧設定）",a:Math.round(r.p.bondTsu*12/10000)});
+        }
+      }
+      [r.events,r.inherit,r.kids,r.bondBuys].forEach(function(arr){
         (arr||[]).forEach(function(e){if(typeof e.y2!=="number")e.y2=e.y;});
       });
       if(typeof r.p.invest!=="number")r.p.invest=0;
       if(typeof r.p.cashCap!=="number")r.p.cashCap=500;
       if(typeof r.p.bond!=="number")r.p.bond=0;
-      if(typeof r.p.bondTsu!=="number")r.p.bondTsu=0;
       if(typeof r.p.bondRate!=="number")r.p.bondRate=0.6;
       if(typeof r.p.kidRate!=="number")r.p.kidRate=4;
       if(typeof r.p.kidBal!=="number")r.p.kidBal=0;
@@ -413,8 +429,6 @@ function load(){
       if(typeof r.shockDrop!=="number")r.shockDrop=30;
       if(typeof r.p.dcaStart!=="number")r.p.dcaStart=r.p.age||50;
       if(typeof r.p.dcaEnd!=="number")r.p.dcaEnd=r.p.ret||65;
-      if(typeof r.p.bondStart!=="number")r.p.bondStart=r.p.age||50;
-      if(typeof r.p.bondEnd!=="number")r.p.bondEnd=r.p.ret||65;
       if(typeof r.p.swrOn!=="boolean")r.p.swrOn=false;
       if(typeof r.p.swrStart!=="number")r.p.swrStart=r.p.ret||65;
       if(typeof r.p.swrRate!=="number")r.p.swrRate=4;
@@ -591,8 +605,15 @@ function calc(monthlyCut,shock){
     if(age>=(p.dcaStart||0)&&age<(p.dcaEnd||0)){
       var st=Math.min((p.tsumitate||0)*12,Math.max(0,cash));cash-=st;inv+=st;tsu+=st;
     }
-    if(age>=(p.bondStart||0)&&age<(p.bondEnd||0)){
-      var bt=Math.min((p.bondTsu||0)*12,Math.max(0,cash));cash-=bt;bond+=bt;tsu+=bt;
+    // 国債の購入（現預金から国債へ移す。手元の現預金の範囲内）
+    var bondBuy=0;
+    (S.bondBuys||[]).forEach(function(e){
+      var s=+e.y, t=(typeof e.y2==="number"?+e.y2:s);
+      if(t<s)t=s;
+      if(year>=s&&year<=t)bondBuy+=(e.a||0)*10000;
+    });
+    if(bondBuy>0){
+      var bt=Math.min(bondBuy,Math.max(0,cash));cash-=bt;bond+=bt;tsu+=bt;bondBuy=bt;
     }
     // 定率取り崩し：運用資産から毎年きまった割合を現金へ移す（株式と国債から按分）
     var swr=0, swrOn=(p.swrOn===true&&age>=(p.swrStart||999));
@@ -974,9 +995,9 @@ function renderList(hostId,arr){
 var MAP={p_year:"year",p_age:"age",p_sage:"sage",p_ret:"ret",p_sret:"sret",p_sev:"sev",
   p_pstart:"pstart",p_pen:"pen",p_spen:"spen",p_asset:"asset",p_invest:"invest",
   p_tsumitate:"tsumitate",p_cashcap:"cashCap",p_ret_rate:"rate",
-  p_bond:"bond",p_bondtsu:"bondTsu",p_bondrate:"bondRate",
+  p_bond:"bond",p_bondrate:"bondRate",
   p_kidrate:"kidRate",p_kidbal:"kidBal",p_penNet:"penNet",p_penRise:"penRise",
-  p_dcaStart:"dcaStart",p_dcaEnd:"dcaEnd",p_bondStart:"bondStart",p_bondEnd:"bondEnd",
+  p_dcaStart:"dcaStart",p_dcaEnd:"dcaEnd",
   p_swrStart:"swrStart",p_swrRate:"swrRate",
   p_infl:"infl",p_loan:"loan",
   p_loan_end:"loanEnd",p_ret_cost:"retCost"};
@@ -1026,6 +1047,7 @@ function renderAll(){
   renderList("events",S.events);
   renderList("inherits",S.inherit);
   renderList("kids",S.kids);
+  renderList("bondbuys",S.bondBuys);
   recalc();persist();
 }
 
@@ -1036,6 +1058,10 @@ document.getElementById("addEvt").onclick=function(){
 document.getElementById("addInh").onclick=function(){
   var y=(S.p.year||2026)+10;
   S.inherit.push({y:y,y2:y,n:"相続",a:500});renderAll();
+};
+document.getElementById("addBond").onclick=function(){
+  var y=(S.p.year||2026)+((S.p.ret||65)-(S.p.age||50));
+  S.bondBuys.push({y:y,y2:y,n:"個人向け国債",a:300});renderAll();
 };
 document.getElementById("addKid").onclick=function(){
   var y=(S.p.year||2026);
