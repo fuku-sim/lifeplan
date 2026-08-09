@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>家計4象限 × ライフプラン表</title>
-<meta name="description" content="支出を「毎月／不定期」×「固定／変動」の4象限に分けて入力し、相続や教育費を織り込んで100歳までの資産推移を計算するライフプランツール。入力内容はブラウザ内にのみ保存されます。">
+<meta name="description" content="支出を「毎月／不定期」×「固定／変動」の4象限に分けて入力し、相続や教育費、年金の目減り、暴落のタイミングまで織り込んで100歳までの資産推移を計算するライフプランツール。入力内容はブラウザ内にのみ保存されます。">
 <meta name="theme-color" content="#F2F4F3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#101614" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -190,6 +190,7 @@
   <section class="card">
     <h2>3. 前提条件</h2>
     <p class="note">生活費は上の4象限の合計が自動で入ります。<strong>完済がある住宅ローンは4象限ではなく下のローン欄に入れてください</strong>（4象限に入れると100歳まで払い続ける計算になります）。賃貸で家賃がずっと続く場合は、逆に4象限へ入れてローン欄を0にします。資産は<strong>現預金・国債・株式など</strong>の3つに分けて持ちます。現預金が足りなくなったときは、まず国債から、それでも足りなければ株式から取り崩します。現預金の上限を超えた分は株式に回ります。</p>
+    <p class="note" style="margin:-8px 0 14px">年金は<strong>ねんきん定期便などの額面</strong>で入れてください。手取り率で税・社会保険料を差し引きます（目安88%）。改定率は物価上昇率と別に設定します。日本の年金はマクロ経済スライドにより<strong>物価上昇より低く抑えられる</strong>設計なので、物価2%なら改定1%程度が妥当な想定です。</p>
     <div class="grid2">
       <div class="f"><label>開始年（西暦）</label><input type="number" id="p_year"></div>
       <div class="f"><label>本人 現在年齢</label><input type="number" id="p_age"></div>
@@ -198,8 +199,10 @@
       <div class="f"><label>配偶者 退職年齢</label><input type="number" id="p_sret"></div>
       <div class="f"><label>退職金（万円）</label><input type="number" id="p_sev" step="100"></div>
       <div class="f"><label>年金開始年齢</label><input type="number" id="p_pstart"></div>
-      <div class="f"><label>本人 年金 年額（万円）</label><input type="number" id="p_pen" step="10"></div>
-      <div class="f"><label>配偶者 年金 年額（万円）</label><input type="number" id="p_spen" step="10"></div>
+      <div class="f"><label>本人 年金 年額・額面（万円）</label><input type="number" id="p_pen" step="10"></div>
+      <div class="f"><label>配偶者 年金 年額・額面（万円）</label><input type="number" id="p_spen" step="10"></div>
+      <div class="f"><label>年金の手取り率（％）</label><input type="number" id="p_penNet" step="1"></div>
+      <div class="f"><label>年金の改定率（％）</label><input type="number" id="p_penRise" step="0.1"></div>
       <div class="f"><label>現在の現預金（万円）</label><input type="number" id="p_asset" step="100"></div>
       <div class="f"><label>現在の投資資産・株式など（万円）</label><input type="number" id="p_invest" step="100"></div>
       <div class="f"><label>積立投資 月額・株式など（円）</label><input type="number" id="p_tsumitate" step="10000"></div>
@@ -266,6 +269,18 @@
       <li><span class="sw" style="background:var(--pos);transform:rotate(45deg)"></span>相続・臨時収入</li>
     </ul>
     <svg id="chart" viewBox="0 0 940 340" role="img" aria-label="金融資産の推移グラフ"></svg>
+  </section>
+
+  <section class="card" style="border-left:3px solid var(--neg)">
+    <h2>暴落がいつ来るかで結果は変わる</h2>
+    <p class="note">上のグラフは利回りが毎年ぴったり同じという前提です。現実の相場は上下します。そして<strong>同じ平均利回りでも、暴落が早い時期に来るか遅い時期に来るかで結末が大きく変わります</strong>。取り崩しが始まった直後の下落がいちばん効きます。株式が一度だけ下落する想定で比べてみてください。</p>
+    <div class="slider" style="margin-bottom:12px">
+      <span style="font-size:13px;color:var(--ink2);white-space:nowrap">下落率</span>
+      <input type="range" id="shockDrop" min="0" max="50" step="5">
+      <span class="impact"><b id="shockDropV">30</b> %</span>
+    </div>
+    <div class="tblwrap" style="max-height:none"><table id="shockTbl"></table></div>
+    <p class="note" id="shockNote" style="margin:12px 0 0"></p>
   </section>
 
   <section class="card">
@@ -335,6 +350,7 @@ function defaults(){return{
   p:{year:2026,age:50,sage:50,ret:65,sret:65,sev:1000,pstart:65,pen:200,spen:90,
      asset:400,invest:300,tsumitate:30000,cashCap:400,rate:4,
      bond:0,bondTsu:0,bondRate:0.6,kidRate:4,kidBal:0,
+     penNet:90,penRise:1,
      infl:2,loan:95000,loanEnd:70,retCost:85},
   events:[
     {y:2026,y2:2029,n:"子どもの学費・仕送り",a:150},
@@ -350,7 +366,8 @@ function defaults(){return{
     {y:2026,y2:2035,n:"子ども1人目",a:30}
   ],
   noInh:false,
-  cut:0
+  cut:0,
+  shockDrop:30
 };}
 
 var S=load();
@@ -370,6 +387,9 @@ function load(){
       if(typeof r.p.bondRate!=="number")r.p.bondRate=0.6;
       if(typeof r.p.kidRate!=="number")r.p.kidRate=4;
       if(typeof r.p.kidBal!=="number")r.p.kidBal=0;
+      if(typeof r.p.penNet!=="number")r.p.penNet=88;
+      if(typeof r.p.penRise!=="number")r.p.penRise=1;
+      if(typeof r.shockDrop!=="number")r.shockDrop=30;
       return r;
     }}catch(e){}
   return defaults();
@@ -460,6 +480,7 @@ function renderStack(rows){
     d.title=Q.label+" "+yen(Q.v)+"円";
     if(pct>11)d.textContent=Math.round(pct)+"%";
     al.appendChild(d);
+    if(d.scrollWidth>d.clientWidth)d.textContent="";
     var li=document.createElement("li");
     li.innerHTML='<span class="sw" style="background:'+Q.color+'"></span>'+Q.label+
       ' '+yen(Q.v)+'円';
@@ -477,6 +498,7 @@ function renderStack(rows){
     if(-rest/base*100>11)d2.textContent="不足";
   }
   al.appendChild(d2);
+  if(d2.scrollWidth>d2.clientWidth)d2.textContent="";
   var li2=document.createElement("li");
   li2.innerHTML='<span class="sw" style="background:'+(rest>=0?"var(--accent)":"var(--neg)")+'"></span>'+
     (rest>=0?'貯蓄・投資へ ':'不足 ')+yen(Math.abs(rest))+'円';
@@ -484,8 +506,10 @@ function renderStack(rows){
 }
 
 /* ---------- ライフプラン計算 ---------- */
-function calc(monthlyCut){
+function calc(monthlyCut,shock){
   var p=S.p, cut=(monthlyCut||0)*12;
+  // shock: {at:年齢, drop:下落率%} 指定年に株式が一度だけ下落する
+  shock=shock||null;
   var baseCost=Math.max(0,totalExp()-cut);          // 円/年
   var income=totalInc();                             // 円/年
   var infl=(p.infl||0)/100, rate=(p.rate||0)/100, brate=(p.bondRate||0)/100;
@@ -498,8 +522,10 @@ function calc(monthlyCut){
     var sWorking=sage<(p.sret||65);
     var wage=working?((S.inc.m||0)*12+(S.inc.b||0)):0;
     var sWage=sWorking?(S.inc.s||0):0;
-    var pen=age>=(p.pstart||65)?(p.pen||0)*10000:0;
-    var sPen=sage>=(p.pstart||65)?(p.spen||0)*10000:0;
+    // 年金は「額面×手取り率」。伸び率は物価ではなく年金改定率（マクロ経済スライドで物価を下回る）
+    var pf=Math.pow(1+(p.penRise||0)/100,i), pnet=(p.penNet||100)/100;
+    var pen=age>=(p.pstart||65)?(p.pen||0)*10000*pnet*pf:0;
+    var sPen=sage>=(p.pstart||65)?(p.spen||0)*10000*pnet*pf:0;
     var sev=(age===(p.ret||65))?(p.sev||0)*10000:0;
     var inhSum=0, inhNames=[], inhStart=false;
     if(!S.noInh){
@@ -509,7 +535,7 @@ function calc(monthlyCut){
         if(year>=s&&year<=t){inhSum+=(e.a||0)*10000;inhNames.push(e.n);if(year===s)inhStart=true;}
       });
     }
-    var inc=(wage+sWage)*Math.pow(1+infl,i)+ (pen+sPen)*f + sev + inhSum;
+    var inc=(wage+sWage)*Math.pow(1+infl,i) + (pen+sPen) + sev + inhSum;
 
     var costRatio=working?1:((p.retCost||100)/100);
     var living=baseCost*costRatio*f;
@@ -540,7 +566,9 @@ function calc(monthlyCut){
     // 生活防衛資金の上限を超えた現預金は投資へ回す（相続などの臨時収入もここで運用に乗る）
     var cap=(p.cashCap||0)*10000;
     if(cash>cap){var sweep=cash-cap;cash=cap;inv+=sweep;tsu+=sweep;}
-    inv=inv*(1+rate);
+    var yearRate=rate;
+    if(shock&&age===shock.at)yearRate=-(shock.drop||0)/100;
+    inv=inv*(1+yearRate);
     bond=bond*(1+brate);
     // 現預金が不足したら、まず国債（守りの資産）、次に株式から取り崩す
     if(cash<0){
@@ -622,13 +650,70 @@ function drawKidChart(kids,rows){
     "stroke-width":2.4,"stroke-linejoin":"round"}));
   svg.appendChild(el("line",{x1:L,x2:W-R,y1:H-B,y2:H-B,stroke:"var(--line)","stroke-width":1}));
   [0,Math.floor(n/2),n-1].forEach(function(i){
-    var t=el("text",{x:X(i),y:H-B+18,"text-anchor":"middle",fill:"var(--mute)","font-size":10.5});
+    var anc=(i===0)?"start":(i===n-1?"end":"middle");
+    var t=el("text",{x:X(i),y:H-B+18,"text-anchor":anc,fill:"var(--mute)","font-size":10.5});
     t.textContent=rows[i].year+"年";svg.appendChild(t);
   });
   var lt=el("text",{x:X(n-1)-6,y:Y(tot[n-1])-9,"text-anchor":"end",fill:"var(--q4)",
     "font-size":13,"font-weight":650,stroke:"var(--card)","stroke-width":4,
     "paint-order":"stroke","stroke-linejoin":"round"});
   lt.textContent=man(tot[n-1]/10000)+" 万円";svg.appendChild(lt);
+}
+
+function renderShock(){
+  var p=S.p, drop=S.shockDrop;
+  var b=summary(calc(0));
+  var ret=p.ret||65, now=p.age||50;
+  var cases=[
+    {label:"暴落なし",   at:null},
+    {label:"退職の5年前", at:Math.max(now,ret-5)},
+    {label:"退職した年",  at:ret},
+    {label:"退職の5年後", at:ret+5},
+    {label:"退職の20年後",at:ret+20}
+  ];
+  var h='<thead><tr><th>暴落の時期</th><th>その年の年齢</th><th>資産が尽きる年齢</th><th>'+
+        b.last.age+'歳の資産</th><th>暴落なしとの差</th></tr></thead><tbody>';
+  var worst=null, res=[];
+  cases.forEach(function(c){
+    var s=summary(c.at===null?calc(0):calc(0,{at:c.at,drop:drop}));
+    res.push({c:c,s:s});
+    if(c.at===null)return;
+    // 枯渇が早いほど、枯渇しないなら残高が少ないほど「不利」
+    var key=(s.dep!==null)?[0,s.dep]:[1,s.last.asset];
+    if(worst===null||key[0]<worst.key[0]||(key[0]===worst.key[0]&&key[1]<worst.key[1]))
+      worst={label:c.label,key:key,dep:s.dep,fin:s.last.asset};
+  });
+  res.forEach(function(r){
+    var s=r.s, isBase=r.c.at===null, dep=s.dep!==null;
+    var fin=dep?'—':man(s.last.asset/10000)+' 万円';
+    var diff='—';
+    if(!isBase){
+      if(dep&&b.dep!==null)      diff=(s.dep-b.dep)+' 歳';
+      else if(dep&&b.dep===null) diff='枯渇に転落';
+      else if(!dep&&b.dep===null)diff=((s.last.asset-b.last.asset)>=0?'+':'')+man((s.last.asset-b.last.asset)/10000)+' 万円';
+    }
+    h+='<tr><td>'+r.c.label+'</td><td>'+(isBase?'—':r.c.at+'歳')+'</td>'+
+       '<td class="'+(dep?'neg':'pos')+'" style="font-weight:640">'+(dep?s.dep+' 歳':'尽きない')+'</td>'+
+       '<td>'+fin+'</td>'+
+       '<td class="'+(diff!=='—'&&diff.indexOf('+')!==0?'neg':'')+'">'+diff+'</td></tr>';
+  });
+  document.getElementById("shockTbl").innerHTML=h+'</tbody>';
+
+  var n=document.getElementById("shockNote");
+  if(drop===0){n.textContent="下落率を動かすと、暴落の時期による差が出ます。";return;}
+  var msg='どの行も株式が一度 '+drop+'% 下がるだけで、<strong>下落率も回数も同じ</strong>です。それでも時期が違うだけで結果が変わります。';
+  if(b.dep!==null&&worst.dep!==null){
+    msg+='暴落なしなら'+b.dep+'歳まで持つ資産が、最も不利な「'+worst.label+'」では<strong class="neg">'+
+         worst.dep+'歳で尽きます（'+(b.dep-worst.dep)+'年早い）</strong>。';
+  }else if(b.dep===null&&worst.dep!==null){
+    msg+='暴落がなければ尽きない資産が、「'+worst.label+'」の場合は<strong class="neg">'+
+         worst.dep+'歳で尽きます</strong>。';
+  }else{
+    msg+='最も不利な「'+worst.label+'」では、最終資産が <strong>'+
+         man((b.last.asset-worst.fin)/10000)+' 万円</strong> 少なくなります。';
+  }
+  msg+=' 取り崩しが始まった直後の下落がいちばん効きます。株を売らずにやり過ごせるよう、現預金と国債で数年分の生活費を持っておくのが備えになります。';
+  n.innerHTML=msg;
 }
 
 function summary(rows){
@@ -757,7 +842,9 @@ function renderChart(rows){
   svg.appendChild(el("line",{x1:L,x2:W-R,y1:H-B,y2:H-B,stroke:"var(--line)","stroke-width":1}));
   var marks=[0,Math.floor(n*0.25),Math.floor(n*0.5),Math.floor(n*0.75),n-1];
   marks.forEach(function(i){
-    var t=el("text",{x:X(i),y:H-B+20,"text-anchor":"middle",fill:"var(--mute)","font-size":11});
+    // 両端は枠からはみ出さないように寄せる
+    var anc=(i===0)?"start":(i===n-1?"end":"middle");
+    var t=el("text",{x:X(i),y:H-B+20,"text-anchor":anc,fill:"var(--mute)","font-size":11});
     t.textContent=rows[i].age+"歳";svg.appendChild(t);
   });
 
@@ -846,7 +933,8 @@ var MAP={p_year:"year",p_age:"age",p_sage:"sage",p_ret:"ret",p_sret:"sret",p_sev
   p_pstart:"pstart",p_pen:"pen",p_spen:"spen",p_asset:"asset",p_invest:"invest",
   p_tsumitate:"tsumitate",p_cashcap:"cashCap",p_ret_rate:"rate",
   p_bond:"bond",p_bondtsu:"bondTsu",p_bondrate:"bondRate",
-  p_kidrate:"kidRate",p_kidbal:"kidBal",p_infl:"infl",p_loan:"loan",
+  p_kidrate:"kidRate",p_kidbal:"kidBal",p_penNet:"penNet",p_penRise:"penRise",
+  p_infl:"infl",p_loan:"loan",
   p_loan_end:"loanEnd",p_ret_cost:"retCost"};
 function bind(){
   Object.keys(MAP).forEach(function(id){
@@ -859,6 +947,12 @@ function bind(){
   });
   var cut=document.getElementById("cut");cut.value=S.cut||0;
   cut.oninput=function(){S.cut=+cut.value||0;recalc();persist();};
+  var sd=document.getElementById("shockDrop");sd.value=S.shockDrop;
+  sd.oninput=function(){
+    S.shockDrop=+sd.value||0;
+    document.getElementById("shockDropV").textContent=S.shockDrop;
+    renderShock();persist();
+  };
   var ni=document.getElementById("noInh");ni.checked=!!S.noInh;
   ni.onchange=function(){S.noInh=ni.checked;touch(true);};
 }
@@ -867,6 +961,8 @@ function bind(){
 function recalc(){
   var rows=calc(0);
   renderBar(rows);renderChart(rows);renderTable(rows);renderStack(rows);renderKids(rows);
+  document.getElementById("shockDropV").textContent=S.shockDrop;
+  renderShock();
   var c=S.cut||0;
   document.getElementById("cutv").textContent=yen(c);
   var base=summary(rows).last.asset;
