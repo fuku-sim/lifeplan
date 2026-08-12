@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>家計4象限 × ライフプラン表</title>
-<meta name="description" content="支出を「毎月／不定期」×「固定／変動」の4象限に分けて入力し、積立期間・国債の購入・定率取り崩し・年金の目減り・暴落のタイミングまで織り込んで100歳までの資産推移を計算するライフプランツール。">
+<meta name="description" content="支出を4象限に分けて入力し、積立期間・国債の購入・年齢別の生活費・定率取り崩し・年金の目減り・暴落のタイミングまで織り込んで100歳までの資産推移を計算するライフプランツール。">
 <meta name="theme-color" content="#F2F4F3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#101614" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -232,7 +232,10 @@
       <div class="f"><label>住宅ローン 月額（円）</label><input type="number" id="p_loan" step="10000"></div>
       <div class="f"><label>ローン完済年齢</label><input type="number" id="p_loan_end"></div>
       <div class="f"><label>退職後の生活費（現在の何％）</label><input type="number" id="p_ret_cost" step="5"></div>
+      <div class="f"><label>生活費を下げる年齢（後期）</label><input type="number" id="p_late_age"></div>
+      <div class="f"><label>その年齢以降の生活費（現在の何％）</label><input type="number" id="p_late_cost" step="5"></div>
     </div>
+    <p class="note" style="margin:12px 0 0">生活費は<strong>3段階</strong>で設定できます。①働いている間は上の4象限どおり ②退職から「下げる年齢」までは指定の％ ③それ以降はさらに低い％。高齢になるほど旅行や外食が減り、家計調査でも70代前半と80代後半では消費支出が2〜3割下がります。<strong>元気なうちに厚く使い、後半を抑える</strong>設計にすると、使い残しを減らせます。</p>
     <h2 style="margin-top:26px">国債の購入</h2>
     <p class="note">個人向け国債は1万円単位でいつでも買えますが、実際には<strong>まとまった額を一度に</strong>買うのが一般的です。退職時に守りの資金として移す場合は、開始年と終了年を同じにして金額を入れてください。何年かに分けて買うなら終了年を先に設定します（その場合の金額は1年あたり）。現預金から国債へ移す扱いで、<strong>手元の現預金の範囲内</strong>で実行されます。</p>
     <div class="evtrow" style="font-size:11px;color:var(--mute);font-weight:600">
@@ -387,7 +390,7 @@ function defaults(){return{
      dcaStart:50,dcaEnd:65,sweepOn:false,
      swrOn:false,swrStart:65,swrRate:4,
      penNet:90,penRise:1,
-     infl:2,loan:95000,loanEnd:70,retCost:85},
+     infl:2,loan:95000,loanEnd:70,retCost:85,lateAge:80,lateCost:75},
   events:[
     {y:2026,y2:2029,n:"子どもの学費・仕送り",a:150},
     {y:2032,y2:2032,n:"車の買い替え",a:200},
@@ -443,6 +446,8 @@ function load(){
       if(typeof r.p.swrStart!=="number")r.p.swrStart=r.p.ret||65;
       if(typeof r.p.swrRate!=="number")r.p.swrRate=4;
       if(typeof r.p.sweepOn!=="boolean")r.p.sweepOn=false;
+      if(typeof r.p.lateAge!=="number")r.p.lateAge=80;
+      if(typeof r.p.lateCost!=="number")r.p.lateCost=r.p.retCost||85;
       return r;
     }}catch(e){}
   return defaults();
@@ -590,7 +595,10 @@ function calc(monthlyCut,shock){
     }
     var inc=(wage+sWage)*Math.pow(1+infl,i) + (pen+sPen) + sev + inhSum;
 
-    var costRatio=working?1:((p.retCost||100)/100);
+    // 生活費は3段階：就労中は100%、退職後は退職後％、指定年齢からは後期％
+    var costRatio=1;
+    if(!working)costRatio=(p.retCost||100)/100;
+    if(age>=(p.lateAge||999))costRatio=(p.lateCost||100)/100;
     var living=baseCost*costRatio*f;
     var loan=(age<(p.loanEnd||0))?((p.loan||0)*12):0;
     var evtSum=0, evtNames=[], evtStart=false;
@@ -1010,7 +1018,8 @@ var MAP={p_year:"year",p_age:"age",p_sage:"sage",p_ret:"ret",p_sret:"sret",p_sev
   p_dcaStart:"dcaStart",p_dcaEnd:"dcaEnd",
   p_swrStart:"swrStart",p_swrRate:"swrRate",
   p_infl:"infl",p_loan:"loan",
-  p_loan_end:"loanEnd",p_ret_cost:"retCost"};
+  p_loan_end:"loanEnd",p_ret_cost:"retCost",
+  p_late_age:"lateAge",p_late_cost:"lateCost"};
 function bind(){
   Object.keys(MAP).forEach(function(id){
     var e=document.getElementById(id);e.value=S.p[MAP[id]];
