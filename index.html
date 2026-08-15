@@ -221,6 +221,14 @@
       <div class="f"><label>株式などの想定利回り（％）</label><input type="number" id="p_ret_rate" step="0.5"></div>
       <div class="f"><label>現在の国債（万円）</label><input type="number" id="p_bond" step="100"></div>
       <div class="f"><label>国債の利回り（％）</label><input type="number" id="p_bondrate" step="0.1"></div>
+      <div class="f"><label>NISAの非課税枠（万円・世帯合計）</label><input type="number" id="p_nisacap" step="100"></div>
+      <div class="f"><label>運用益への税率（％）</label><input type="number" id="p_taxrate" step="0.1"></div>
+      <div class="f" style="justify-content:flex-end">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2);cursor:pointer;font-weight:400">
+          <input type="checkbox" id="p_taxOn" style="width:auto;margin:0">
+          運用益への課税を計算する
+        </label>
+      </div>
       <div class="f"><label>現預金として置いておく上限（万円）</label><input type="number" id="p_cashcap" step="100"></div>
       <div class="f" style="justify-content:flex-end">
         <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2);cursor:pointer;font-weight:400">
@@ -235,6 +243,7 @@
       <div class="f"><label>生活費を下げる年齢（後期）</label><input type="number" id="p_late_age"></div>
       <div class="f"><label>その年齢以降の生活費（現在の何％）</label><input type="number" id="p_late_cost" step="5"></div>
     </div>
+    <p class="note" style="margin:12px 0 0"><strong>運用益への課税</strong>：投資に回したお金は<strong>NISAの枠から先に</strong>埋まり、枠を超えた分は課税口座として扱います。NISA分は非課税、課税口座分は<strong>売却したときだけ</strong>含み益に課税されます（持ち続けている間は課税されません）。取り崩しは課税口座から先に行い、NISAはできるだけ長く非課税で運用します。国債の利子は毎年源泉徴収される前提です。枠は<strong>簿価（買った値段）で管理</strong>されるため、値上がり分は枠を消費しません。新NISAの生涯投資枠は1人1,800万円なので、夫婦なら3,600万円です。<strong>注意</strong>：最終年に残る資産には、まだ売っていない<strong>含み益への将来の税が含まれたまま</strong>です。使うときや相続後に売却すれば、課税口座の含み益にはそこで税がかかります。表示額をそのまま使える金額とは考えないでください。</p>
     <p class="note" style="margin:12px 0 0">生活費は<strong>3段階</strong>で設定できます。①働いている間は上の4象限どおり ②退職から「下げる年齢」までは指定の％ ③それ以降はさらに低い％。高齢になるほど旅行や外食が減り、家計調査でも70代前半と80代後半では消費支出が2〜3割下がります。<strong>元気なうちに厚く使い、後半を抑える</strong>設計にすると、使い残しを減らせます。</p>
     <h2 style="margin-top:26px">国債の購入</h2>
     <p class="note">個人向け国債は1万円単位でいつでも買えますが、実際には<strong>まとまった額を一度に</strong>買うのが一般的です。退職時に守りの資金として移す場合は、開始年と終了年を同じにして金額を入れてください。何年かに分けて買うなら終了年を先に設定します（その場合の金額は1年あたり）。現預金から国債へ移す扱いで、<strong>手元の現預金の範囲内</strong>で実行されます。</p>
@@ -345,7 +354,7 @@
   </section>
 
   <footer>
-    入力値はこのブラウザ（localStorage）にのみ保存され、どこにも送信されません。計算は簡易モデルです（税・社会保険料は手取り入力に含まれる前提、運用益への課税は考慮していません）。実際の判断は必要に応じて専門家にご相談ください。
+    入力値はこのブラウザ（localStorage）にのみ保存され、どこにも送信されません。計算は簡易モデルです（税・社会保険料は手取り入力に含まれる前提。運用益への課税は前提条件で設定できます）。実際の判断は必要に応じて専門家にご相談ください。
   </footer>
 </div>
 <div class="tip" id="tip"></div>
@@ -388,6 +397,7 @@ function defaults(){return{
      asset:400,invest:300,tsumitate:30000,cashCap:400,rate:4,
      bond:0,bondRate:0.6,kidRate:4,kidBal:0,
      dcaStart:50,dcaEnd:65,sweepOn:false,
+     taxOn:true,taxRate:20.315,nisaCap:3600,
      swrOn:false,swrStart:65,swrRate:4,
      penNet:90,penRise:1,
      infl:2,loan:95000,loanEnd:70,retCost:85,lateAge:80,lateCost:75},
@@ -446,6 +456,9 @@ function load(){
       if(typeof r.p.swrStart!=="number")r.p.swrStart=r.p.ret||65;
       if(typeof r.p.swrRate!=="number")r.p.swrRate=4;
       if(typeof r.p.sweepOn!=="boolean")r.p.sweepOn=false;
+      if(typeof r.p.taxOn!=="boolean")r.p.taxOn=true;
+      if(typeof r.p.taxRate!=="number")r.p.taxRate=20.315;
+      if(typeof r.p.nisaCap!=="number")r.p.nisaCap=3600;
       if(typeof r.p.lateAge!=="number")r.p.lateAge=80;
       if(typeof r.p.lateCost!=="number")r.p.lateCost=r.p.retCost||85;
       return r;
@@ -571,10 +584,43 @@ function calc(monthlyCut,shock){
   var baseCost=Math.max(0,totalExp()-cut);          // 円/年
   var income=totalInc();                             // 円/年
   var infl=(p.infl||0)/100, rate=(p.rate||0)/100, brate=(p.bondRate||0)/100;
-  var rows=[], cash=(p.asset||0)*10000, inv=(p.invest||0)*10000, bond=(p.bond||0)*10000;   // 円
+  var rows=[], cash=(p.asset||0)*10000, bond=(p.bond||0)*10000;   // 円
+  // 投資資産は NISA（非課税）と課税口座に分けて持つ
+  var taxOn=(p.taxOn===true), tr=taxOn?((p.taxRate||0)/100):0;
+  var nisaCap=(p.nisaCap||0)*10000, inv0=(p.invest||0)*10000;
+  var invN=Math.min(inv0,nisaCap), invT=inv0-invN;
+  var nisaUsed=invN;        // 枠の使用量（簿価で管理）
+  var basisT=invT;          // 課税口座の取得価額
+  var taxCum=0, taxThis=0;
+  // 投資へ入れる：NISA枠から先に埋める
+  function addInv(a){
+    if(!(a>0))return;
+    var toN=Math.min(a,Math.max(0,nisaCap-nisaUsed));
+    invN+=toN; nisaUsed+=toN;
+    var toT=a-toN; invT+=toT; basisT+=toT;
+  }
+  // 投資から取り崩す：手取りで need 円を得る。課税口座を先に売り、含み益にだけ課税
+  function sellInv(need){
+    if(!(need>0))return;
+    if(invT>0){
+      var gr=Math.max(0,invT-basisT)/invT;   // 含み益の割合
+      var er=gr*tr;                          // 売却額に対する実効税率
+      var gross=need/(1-er);
+      if(gross>invT)gross=invT;
+      var frac=gross/invT, t=gross*er;
+      invT-=gross; basisT-=basisT*frac;
+      taxThis+=t; need-=(gross-t);
+    }
+    if(need>0){
+      var fromN=Math.min(need,Math.max(0,invN));
+      invN-=fromN; need-=fromN;
+    }
+    if(need>0)invT-=need;   // 資産が尽きた場合はマイナスとして残す
+  }
   var years=Math.max(1,100-(p.age||50));
   for(var i=0;i<=years;i++){
     var year=(p.year||2026)+i, age=(p.age||50)+i, sage=(p.sage||50)+i;
+    taxThis=0;
     var f=Math.pow(1+infl,i);
     var working=age<(p.ret||65);
     var sWorking=sage<(p.sret||65);
@@ -621,7 +667,7 @@ function calc(monthlyCut,shock){
     // 就労中は積立額を現預金から投資へ振り替える（現預金がある範囲で）
     var tsu=0;
     if(age>=(p.dcaStart||0)&&age<(p.dcaEnd||0)){
-      var st=Math.min((p.tsumitate||0)*12,Math.max(0,cash));cash-=st;inv+=st;tsu+=st;
+      var st=Math.min((p.tsumitate||0)*12,Math.max(0,cash));cash-=st;addInv(st);tsu+=st;
     }
     // 国債の購入（現預金から国債へ移す。手元の現預金の範囲内）
     var bondBuy=0;
@@ -636,30 +682,36 @@ function calc(monthlyCut,shock){
     // 定率取り崩し：運用資産から毎年きまった割合を現金へ移す（株式と国債から按分）
     var swr=0, swrOn=(p.swrOn===true&&age>=(p.swrStart||999));
     if(swrOn){
-      var pool=Math.max(0,inv)+Math.max(0,bond);
+      var invTot=Math.max(0,invN)+Math.max(0,invT);
+      var pool=invTot+Math.max(0,bond);
       swr=pool*((p.swrRate||0)/100);
       if(swr>0&&pool>0){
-        var fi=Math.max(0,inv)/pool;
-        inv-=swr*fi; bond-=swr*(1-fi); cash+=swr;
+        var fi=invTot/pool;
+        bond-=swr*(1-fi); sellInv(swr*fi); cash+=swr;
       }
     }
     // 上限を超えた現預金の自動振替（任意。定率取り崩し中は戻さない）
     var cap=(p.cashCap||0)*10000;
-    if(p.sweepOn===true&&!swrOn&&cash>cap){var sweep=cash-cap;cash=cap;inv+=sweep;tsu+=sweep;}
+    if(p.sweepOn===true&&!swrOn&&cash>cap){var sweep=cash-cap;cash=cap;addInv(sweep);tsu+=sweep;}
     var yearRate=rate;
     if(shock&&age===shock.at)yearRate=-(shock.drop||0)/100;
-    inv=inv*(1+yearRate);
-    bond=bond*(1+brate);
+    invN=invN*(1+yearRate); invT=invT*(1+yearRate);
+    // 国債の利子は毎年源泉徴収される
+    taxThis+=Math.max(0,bond)*brate*tr;
+    bond=bond*(1+brate*(1-tr));
     // 現預金が不足したら、まず国債（守りの資産）、次に株式から取り崩す
     if(cash<0){
       var need=-cash;cash=0;
       var fromBond=Math.min(need,Math.max(0,bond));
       bond-=fromBond;need-=fromBond;
-      if(need>0)inv-=need;
+      if(need>0)sellInv(need);
     }
+    var inv=invN+invT;
+    taxCum+=taxThis;
     var asset=cash+inv+bond;
     rows.push({year:year,age:age,sage:sage,inc:inc,exp:exp,net:net,asset:asset,
-      cash:cash,inv:inv,bond:bond,living:living,loan:loan,gift:giftSum,swr:swr,
+      cash:cash,inv:inv,bond:bond,nisa:invN,tax:taxThis,taxCum:taxCum,
+      living:living,loan:loan,gift:giftSum,swr:swr,
       evt:evtSum,evtNames:evtNames,evtStart:evtStart,
       inh:inhSum,inhNames:inhNames,inhStart:inhStart,real:asset/f,tsu:tsu});
   }
@@ -961,7 +1013,7 @@ function renderChart(rows){
 function renderTable(rows){
   var t=document.getElementById("tbl");
   var peak=Math.max.apply(null,rows.map(function(r){return Math.max(0,r.asset);}))||1;
-  var h='<thead><tr><th>西暦</th><th>年齢</th><th>収入</th><th>うち相続</th><th>生活費</th><th>ローン</th><th>イベント</th><th>贈与</th><th>支出計</th><th>収支</th><th>定率取崩</th><th>現預金</th><th>国債</th><th>株式など</th><th>資産合計</th><th>実質</th></tr></thead><tbody>';
+  var h='<thead><tr><th>西暦</th><th>年齢</th><th>収入</th><th>うち相続</th><th>生活費</th><th>ローン</th><th>イベント</th><th>贈与</th><th>支出計</th><th>収支</th><th>定率取崩</th><th>納税</th><th>現預金</th><th>国債</th><th>株式など</th><th>資産合計</th><th>実質</th></tr></thead><tbody>';
   rows.forEach(function(r){
     h+='<tr'+((r.evtNames.length||r.inhNames.length)?' class="evt"':'')+'>'+
       '<td>'+r.year+(r.evtStart?'<span style="font-size:10.5px;color:var(--q3)"> ●</span>':'')+
@@ -976,6 +1028,7 @@ function renderTable(rows){
       '<td>'+man(r.exp/10000)+'</td>'+
       '<td class="'+(r.net>=0?'pos':'neg')+'">'+(r.net>=0?'+':'')+man(r.net/10000)+'</td>'+
       '<td style="color:var(--accent)">'+(r.swr?man(r.swr/10000):'—')+'</td>'+
+      '<td class="'+(r.tax>0?'neg':'')+'">'+(r.tax>0?'−'+man(r.tax/10000):'—')+'</td>'+
       '<td style="color:var(--mute)">'+man(r.cash/10000)+'</td>'+
       '<td style="color:var(--mute)">'+man(r.bond/10000)+'</td>'+
       '<td style="color:var(--mute)">'+man(r.inv/10000)+'</td>'+
@@ -1014,6 +1067,7 @@ var MAP={p_year:"year",p_age:"age",p_sage:"sage",p_ret:"ret",p_sret:"sret",p_sev
   p_pstart:"pstart",p_pen:"pen",p_spen:"spen",p_asset:"asset",p_invest:"invest",
   p_tsumitate:"tsumitate",p_cashcap:"cashCap",p_ret_rate:"rate",
   p_bond:"bond",p_bondrate:"bondRate",
+  p_nisacap:"nisaCap",p_taxrate:"taxRate",
   p_kidrate:"kidRate",p_kidbal:"kidBal",p_penNet:"penNet",p_penRise:"penRise",
   p_dcaStart:"dcaStart",p_dcaEnd:"dcaEnd",
   p_swrStart:"swrStart",p_swrRate:"swrRate",
@@ -1041,6 +1095,8 @@ function bind(){
   sw.onchange=function(){S.p.swrOn=sw.checked;touch(true);};
   var sp=document.getElementById("p_sweepOn");sp.checked=!!S.p.sweepOn;
   sp.onchange=function(){S.p.sweepOn=sp.checked;touch(true);};
+  var tx=document.getElementById("p_taxOn");tx.checked=!!S.p.taxOn;
+  tx.onchange=function(){S.p.taxOn=tx.checked;touch(true);};
   var ni=document.getElementById("noInh");ni.checked=!!S.noInh;
   ni.onchange=function(){S.noInh=ni.checked;touch(true);};
 }
@@ -1105,12 +1161,13 @@ document.getElementById("imp").onchange=function(ev){
   fr.readAsText(f);};
 document.getElementById("csv").onclick=function(){
   var rows=calc(0);
-  var out="西暦,本人年齢,配偶者年齢,収入,うち相続,生活費,ローン,イベント,贈与,支出計,収支,定率取崩,現預金,国債,株式など,資産合計,実質\n";
+  var out="西暦,本人年齢,配偶者年齢,収入,うち相続,生活費,ローン,イベント,贈与,支出計,収支,定率取崩,納税,累計納税,現預金,国債,株式など,うちNISA,資産合計,実質\n";
   rows.forEach(function(r){
     out+=[r.year,r.age,r.sage,Math.round(r.inc/10000),Math.round(r.inh/10000),Math.round(r.living/10000),
       Math.round(r.loan/10000),Math.round(r.evt/10000),Math.round(r.gift/10000),Math.round(r.exp/10000),
-      Math.round(r.net/10000),Math.round(r.swr/10000),Math.round(r.cash/10000),Math.round(r.bond/10000),
-      Math.round(r.inv/10000),Math.round(r.asset/10000),Math.round(r.real/10000)].join(",")+"\n";
+      Math.round(r.net/10000),Math.round(r.swr/10000),Math.round(r.tax/10000),Math.round(r.taxCum/10000),
+      Math.round(r.cash/10000),Math.round(r.bond/10000),
+      Math.round(r.inv/10000),Math.round(r.nisa/10000),Math.round(r.asset/10000),Math.round(r.real/10000)].join(",")+"\n";
   });
   var blob=new Blob(["﻿"+out],{type:"text/csv"});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);
